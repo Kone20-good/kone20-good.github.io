@@ -512,7 +512,8 @@ function departureInfo(r){
 function naverDir(r){
   const en=encodeURIComponent(r.resolved_name||r.course), sn=encodeURIComponent(HOME.label);
   if(r.lat==null||r.lon==null) return `https://map.naver.com/p/search/${en}`;
-  return `https://map.naver.com/p/directions/${HOME.lon},${HOME.lat},${sn},,/${r.lon},${r.lat},${en},,/car`;
+  // 형식: /directions/{출발 lng,lat,이름}/{도착 lng,lat,이름}/{경유지=-}/{car}
+  return `https://map.naver.com/p/directions/${HOME.lon},${HOME.lat},${sn}/${r.lon},${r.lat},${en}/-/car`;
 }
 function kstToUTC(dateStr,hhmm){ const [Y,Mo,D]=dateStr.split("-").map(Number),[h,m]=hhmm.split(":").map(Number); return new Date(Date.UTC(Y,Mo-1,D,h-9,m,0)); }
 function icsFmt(dt){ const p=n=>String(n).padStart(2,"0"); return `${dt.getUTCFullYear()}${p(dt.getUTCMonth()+1)}${p(dt.getUTCDate())}T${p(dt.getUTCHours())}${p(dt.getUTCMinutes())}00Z`; }
