@@ -121,8 +121,8 @@
   .weather-summary { display: flex; flex-wrap: wrap; gap: 6px; }
   .wchip { display: inline-flex; align-items: center; gap: 4px; background: #fff; border-radius: 20px; padding: 4px 10px; font-size: 12px; border: 1px solid var(--border); }
   .wchip.rain-yes { color: #1d4ed8; }
-  .hourly-table { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
-  .hour-cell { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 7px 2px; text-align: center; font-size: 11px; }
+  .hourly-table { display: flex; gap: 5px; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; padding-bottom: 3px; }
+  .hour-cell { flex: 0 0 calc((100% - 20px) / 5); background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 7px 2px; text-align: center; font-size: 11px; }
   .hour-cell .h-time { font-weight: 700; }
   .hour-cell .h-emoji { font-size: 18px; display: block; margin: 1px 0; }
   .hour-cell .h-temp { font-weight: 700; color: var(--green); font-size: 13px; }
@@ -223,7 +223,7 @@
 <script>
 "use strict";
 // ===================== constants =====================
-const DEFAULT_PAR = 72, DEFAULT_TEE = "07:00", CACHE_HOURS = 12, ROUND_HOURS = 5, FORECAST_MAX_DAYS = 16;
+const DEFAULT_PAR = 72, DEFAULT_TEE = "07:00", CACHE_HOURS = 12, ROUND_HOURS = 7, FORECAST_MAX_DAYS = 16;
 const GEOCODE = "https://nominatim.openstreetmap.org/search";
 const FORECAST = "https://api.open-meteo.com/v1/forecast";
 const GOLF_SUFFIXES = ["cc", "gc", "컨트리클럽", "골프클럽", "골프장"];
@@ -399,7 +399,7 @@ function weatherHtml(w){
       <span class="wchip">🌡️ 시작 <b>${fmtTemp(w.start_temp)}°</b></span>
       <span class="wchip">${fmtTemp(w.temp_min)}° ~ ${fmtTemp(w.temp_max)}° ${arrow}</span></div>
     <div class="hourly-table">${hours}</div>
-    <div class="weather-loc">📍 ${escapeHtml(w.resolved_name||"")} · 티오프 후 5시간 예보</div></div>`;
+    <div class="weather-loc">📍 ${escapeHtml(w.resolved_name||"")} · 티오프 후 7시간 예보</div></div>`;
 }
 function roundCard(r){
   return `<div class="round-card" data-id="${r.id}">
