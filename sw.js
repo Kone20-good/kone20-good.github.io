@@ -1,6 +1,6 @@
 // 골프 스케줄러 service worker — offline app shell caching.
 // deploy pipeline verified 2026-07-28 (edit→push→Pages)
-const CACHE = "golf-scheduler-v3";
+const CACHE = "golf-scheduler-v4";
 const SHELL = [
   "./",
   "./index.html",
@@ -25,7 +25,7 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   // Never cache weather / geocoding API calls — always go to network.
-  if (url.hostname.includes("open-meteo.com") || url.hostname.includes("openstreetmap.org")) {
+  if (url.hostname.includes("open-meteo.com") || url.hostname.includes("openstreetmap.org") || url.hostname.includes("data.go.kr")) {
     return; // default network behavior
   }
   // App shell: cache-first, fall back to network, then cache the response.
