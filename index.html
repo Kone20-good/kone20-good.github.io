@@ -139,9 +139,10 @@
   .travel-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .tbtn { display: inline-flex; align-items: center; gap: 4px; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--ink); text-decoration: none; cursor: pointer; }
 
-  .round-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-  .mini-form { display: flex; gap: 6px; align-items: center; }
-  .mini-form input { width: 78px; }
+  .round-actions { display: flex; gap: 5px; flex-wrap: wrap; align-items: center; }
+  .round-actions button { padding: 6px 10px; font-size: 12px; border-radius: 7px; }
+  .mini-form { display: flex; gap: 4px; align-items: center; }
+  .mini-form input { width: 62px; padding: 7px 8px; font-size: 13px; }
 
   /* calendar */
   .cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
@@ -244,6 +245,7 @@ const KMA_MAX_DAYS = 2; // 오늘(0)·내일(1)·모레(2)까지 기상청 사�
 const HOME = { lat: 37.3596, lon: 127.1064, label: "정자일로 100" };
 const OSRM = "https://router.project-osrm.org/route/v1/driving";
 const ARRIVE_BEFORE_MIN = 60; // 티오프 1시간 전 도착 목표
+const DRIVE_BUFFER_MIN = 5; // 집→주차장→도로 진입 버퍼
 const GOLF_SUFFIXES = ["cc", "gc", "컨트리클럽", "골프클럽", "골프장"];
 const WMO = {
   0:["맑음","☀️"],1:["대체로 맑음","⛅"],2:["구름 조금","⛅"],3:["흐림","☁️"],
@@ -492,14 +494,11 @@ async function getTravel(round, force){
   try{
     const res=await fetch(`${OSRM}/${HOME.lon},${HOME.lat};${lon},${lat}?overview=false`);
     const d=await res.json(); const rt=(d.routes||[])[0];
-    if(rt){ t.minutes=Math.round(rt.duration/60); t.km=Math.round(rt.distance/100)/10; } else t.error=true;
+    if(rt){ t.minutes=Math.round(rt.duration/60)+DRIVE_BUFFER_MIN; t.km=Math.round(rt.distance/100)/10; } else t.error=true;
   }catch(e){ t.error=true; }
   round.travel=t; saveStore(store); return t;
 }
-function travelMin(r){
-  if(r.travel_override!=null && r.travel_override!=="") return Number(r.travel_override);
-  return (r.travel && r.travel.minutes!=null) ? r.travel.minutes : null;
-}
+function travelMin(r){ return (r.travel && r.travel.minutes!=null) ? r.travel.minutes : null; }
 function shiftHM(hhmm, deltaMin){ // hhmm에서 deltaMin 분 이동(음수=이전)
   const [h,m]=(hhmm||"07:00").split(":").map(Number); let t=h*60+m+deltaMin;
   t=((t%1440)+1440)%1440; return pad2(Math.floor(t/60))+":"+pad2(t%60);
@@ -548,24 +547,19 @@ function addAlarm(id){
   setTimeout(()=>URL.revokeObjectURL(url),4000);
   toast("캘린더에 출발 알람 추가");
 }
-function saveTravelOverride(id){ const r=store.rounds.find(x=>x.id===id); if(!r) return;
-  const v=document.getElementById(`tov-${id}`).value; r.travel_override=v===""?null:Number(v); saveStore(store); renderRounds(); toast("이동시간 지정 저장"); }
 function travelHtml(r){
   const t=r.travel;
   if(!t) return `<div class="travel-box">🚗 이동시간 계산 중...</div>`;
   const info=departureInfo(r);
   const est = (t && t.minutes!=null) ? `예상 <b>${t.minutes}분</b>${t.km!=null?` (${t.km}km)`:""}` : (t&&t.error?`위치 못 찾음`:`-`);
-  const ovr = (r.travel_override!=null&&r.travel_override!=="") ? ` · ✏️지정 <b>${r.travel_override}분</b>` : "";
   const dep = info ? `<div class="travel-dep">🕐 <b>${info.depart}</b> 출발 → ${info.arrive} 도착 (티오프 ${info.tee}, 1시간 전)</div>`
                    : `<div class="travel-dep muted">이동시간이 있어야 출발시간이 계산됩니다</div>`;
   return `<div class="travel-card">
-    <div class="travel-line">🚗 이동 ${est}${ovr} <span class="tsrc">· OSRM(교통량 미반영)</span></div>
+    <div class="travel-line">🚗 이동 ${est} <span class="tsrc">· 주차 5분 포함(교통량 미반영)</span></div>
     ${dep}
     <div class="travel-actions">
       <button class="tbtn" onclick="openNaver(${r.id})">🗺️ 네이버 길찾기</button>
       <button class="tbtn" onclick="addAlarm(${r.id})">⏰ 출발알람</button>
-      <span class="mini-form"><input type="number" id="tov-${r.id}" placeholder="분" value="${r.travel_override??""}" style="width:54px">
-      <button class="secondary" onclick="saveTravelOverride(${r.id})">시간지정</button></span>
     </div></div>`;
 }
 function roundCard(r){
