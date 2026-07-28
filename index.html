@@ -509,11 +509,22 @@ function departureInfo(r){
   const tee=r.tee_time||"07:00";
   return { travelMin:tv, arrive:shiftHM(tee,-ARRIVE_BEFORE_MIN), depart:shiftHM(tee,-(ARRIVE_BEFORE_MIN+tv)), tee };
 }
-function naverDir(r){
+function naverWebDir(r){ // 웹 폴백
   const en=encodeURIComponent(r.resolved_name||r.course), sn=encodeURIComponent(HOME.label);
   if(r.lat==null||r.lon==null) return `https://map.naver.com/p/search/${en}`;
-  // 형식: /directions/{출발 lng,lat,이름}/{도착 lng,lat,이름}/{경유지=-}/{car}
   return `https://map.naver.com/p/directions/${HOME.lon},${HOME.lat},${sn}/${r.lon},${r.lat},${en}/-/car`;
+}
+function openNaver(id){
+  const r=store.rounds.find(x=>x.id===id); if(!r) return;
+  const dn=r.resolved_name||r.course;
+  if(r.lat==null||r.lon==null){ window.open(`https://map.naver.com/p/search/${encodeURIComponent(dn)}`,"_blank"); return; }
+  // 네이버 지도 앱 우선(좌표를 도로에 스냅해 경로 산출) → 미설치 시 웹 폴백
+  const app=`nmap://route/car?slat=${HOME.lat}&slng=${HOME.lon}&sname=${encodeURIComponent(HOME.label)}`
+          + `&dlat=${r.lat}&dlng=${r.lon}&dname=${encodeURIComponent(dn)}&appname=kone20-good.github.io`;
+  let left=false; const onHide=()=>{ left=true; };
+  document.addEventListener("visibilitychange", onHide, { once:true });
+  window.location.href=app;
+  setTimeout(()=>{ document.removeEventListener("visibilitychange", onHide); if(!left) window.open(naverWebDir(r),"_blank"); }, 1400);
 }
 function kstToUTC(dateStr,hhmm){ const [Y,Mo,D]=dateStr.split("-").map(Number),[h,m]=hhmm.split(":").map(Number); return new Date(Date.UTC(Y,Mo-1,D,h-9,m,0)); }
 function icsFmt(dt){ const p=n=>String(n).padStart(2,"0"); return `${dt.getUTCFullYear()}${p(dt.getUTCMonth()+1)}${p(dt.getUTCDate())}T${p(dt.getUTCHours())}${p(dt.getUTCMinutes())}00Z`; }
@@ -551,7 +562,7 @@ function travelHtml(r){
     <div class="travel-line">🚗 이동 ${est}${ovr} <span class="tsrc">· OSRM(교통량 미반영)</span></div>
     ${dep}
     <div class="travel-actions">
-      <a class="tbtn" href="${naverDir(r)}" target="_blank" rel="noopener">🗺️ 네이버 길찾기</a>
+      <button class="tbtn" onclick="openNaver(${r.id})">🗺️ 네이버 길찾기</button>
       <button class="tbtn" onclick="addAlarm(${r.id})">⏰ 출발알람</button>
       <span class="mini-form"><input type="number" id="tov-${r.id}" placeholder="분" value="${r.travel_override??""}" style="width:54px">
       <button class="secondary" onclick="saveTravelOverride(${r.id})">시간지정</button></span>
