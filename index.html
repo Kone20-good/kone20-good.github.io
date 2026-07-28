@@ -129,6 +129,16 @@
   .hour-cell .h-meta { color: var(--muted); font-size: 10px; margin-top: 1px; }
   .weather-loc { font-size: 11px; color: var(--muted); }
 
+  /* travel + departure */
+  .travel-box { background: var(--green-light); border-radius: 10px; padding: 8px 12px; font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .travel-card { background: var(--green-light); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; font-size: 13px; margin-top: 8px; }
+  .travel-line { font-weight: 600; color: var(--ink); }
+  .travel-line .tsrc { font-weight: 400; font-size: 11px; color: var(--muted); }
+  .travel-dep { color: var(--green); font-weight: 700; }
+  .travel-dep.muted { color: var(--muted); font-weight: 400; }
+  .travel-actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .tbtn { display: inline-flex; align-items: center; gap: 4px; background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--ink); text-decoration: none; cursor: pointer; }
+
   .round-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .mini-form { display: flex; gap: 6px; align-items: center; }
   .mini-form input { width: 78px; }
@@ -230,6 +240,10 @@ const FORECAST = "https://api.open-meteo.com/v1/forecast";
 const KMA_KEY = "e97b244311c9fb1758e83ea59e65b32d439aa40f5943c863fe9b6daa0c459ce1";
 const KMA_URL = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst";
 const KMA_MAX_DAYS = 2; // 오늘(0)·내일(1)·모레(2)까지 기상청 사용
+// 집(출발지) + 이동시간(OSRM, 무료·교통량 미반영) + 도착 버퍼
+const HOME = { lat: 37.3596, lon: 127.1064, label: "정자일로 100" };
+const OSRM = "https://router.project-osrm.org/route/v1/driving";
+const ARRIVE_BEFORE_MIN = 60; // 티오프 1시간 전 도착 목표
 const GOLF_SUFFIXES = ["cc", "gc", "컨트리클럽", "골프클럽", "골프장"];
 const WMO = {
   0:["맑음","☀️"],1:["대체로 맑음","⛅"],2:["구름 조금","⛅"],3:["흐림","☁️"],
@@ -400,6 +414,7 @@ async function getWeather(round, force){
       lat=found[0].lat; lon=found[0].lon; resolved=found[0].display_name;
     }
     result.resolved_name=resolved; result.lat=lat; result.lon=lon;
+    round.lat=lat; round.lon=lon; if(!round.resolved_name) round.resolved_name=resolved;
     const target=new Date(round.date+"T00:00:00"); const now=new Date(); now.setHours(0,0,0,0);
     const diffDays=(target-now)/86400000;
     if(diffDays<0 || diffDays>FORECAST_MAX_DAYS){ result.out_of_range=true; }
@@ -465,6 +480,82 @@ function weatherHtml(w){
     <div class="hourly-table">${hours}</div>
     <div class="weather-loc">📍 ${escapeHtml(w.resolved_name||"")} · 티오프 후 7시간 예보 · ${w.source==="기상청"?"🇰🇷 기상청":"🌐 Open-Meteo"}</div></div>`;
 }
+// ===================== travel time + departure alarm =====================
+async function getTravel(round, force){
+  if(round.travel && !force) return round.travel;
+  let lat=round.lat, lon=round.lon;
+  if(lat==null||lon==null){
+    try{ const found=await searchCourses(round.course); if(found.length){ lat=found[0].lat; lon=found[0].lon; round.lat=lat; round.lon=lon; } }catch(e){}
+  }
+  const t={ fetched_at:new Date().toISOString() };
+  if(lat==null||lon==null){ t.error=true; round.travel=t; saveStore(store); return t; }
+  try{
+    const res=await fetch(`${OSRM}/${HOME.lon},${HOME.lat};${lon},${lat}?overview=false`);
+    const d=await res.json(); const rt=(d.routes||[])[0];
+    if(rt){ t.minutes=Math.round(rt.duration/60); t.km=Math.round(rt.distance/100)/10; } else t.error=true;
+  }catch(e){ t.error=true; }
+  round.travel=t; saveStore(store); return t;
+}
+function travelMin(r){
+  if(r.travel_override!=null && r.travel_override!=="") return Number(r.travel_override);
+  return (r.travel && r.travel.minutes!=null) ? r.travel.minutes : null;
+}
+function shiftHM(hhmm, deltaMin){ // hhmm에서 deltaMin 분 이동(음수=이전)
+  const [h,m]=(hhmm||"07:00").split(":").map(Number); let t=h*60+m+deltaMin;
+  t=((t%1440)+1440)%1440; return pad2(Math.floor(t/60))+":"+pad2(t%60);
+}
+function departureInfo(r){
+  const tv=travelMin(r); if(tv==null) return null;
+  const tee=r.tee_time||"07:00";
+  return { travelMin:tv, arrive:shiftHM(tee,-ARRIVE_BEFORE_MIN), depart:shiftHM(tee,-(ARRIVE_BEFORE_MIN+tv)), tee };
+}
+function naverDir(r){
+  const en=encodeURIComponent(r.resolved_name||r.course), sn=encodeURIComponent(HOME.label);
+  if(r.lat==null||r.lon==null) return `https://map.naver.com/p/search/${en}`;
+  return `https://map.naver.com/p/directions/${HOME.lon},${HOME.lat},${sn},,/${r.lon},${r.lat},${en},,/car`;
+}
+function kstToUTC(dateStr,hhmm){ const [Y,Mo,D]=dateStr.split("-").map(Number),[h,m]=hhmm.split(":").map(Number); return new Date(Date.UTC(Y,Mo-1,D,h-9,m,0)); }
+function icsFmt(dt){ const p=n=>String(n).padStart(2,"0"); return `${dt.getUTCFullYear()}${p(dt.getUTCMonth()+1)}${p(dt.getUTCDate())}T${p(dt.getUTCHours())}${p(dt.getUTCMinutes())}00Z`; }
+function makeICS(r){
+  const info=departureInfo(r); if(!info) return null;
+  const tee=r.tee_time||"07:00", start=kstToUTC(r.date,tee), end=new Date(start.getTime()+5*3600*1000);
+  const before=ARRIVE_BEFORE_MIN+info.travelMin;
+  const desc=`집 출발 ${info.depart} · 운전 ${info.travelMin}분 · ${info.arrive} 도착 · 티오프 ${tee}`;
+  return ["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//golf-scheduler//KR","CALSCALE:GREGORIAN","METHOD:PUBLISH",
+    "BEGIN:VEVENT",`UID:golf-${r.id}-${r.date}@kone20-good`,`DTSTAMP:${icsFmt(new Date())}`,`DTSTART:${icsFmt(start)}`,`DTEND:${icsFmt(end)}`,
+    `SUMMARY:⛳ ${r.course} 라운드 (티오프 ${tee})`,`LOCATION:${(r.resolved_name||r.course).replace(/,/g," ")}`,`DESCRIPTION:${desc}`,
+    "BEGIN:VALARM","ACTION:DISPLAY",`DESCRIPTION:🚗 지금 출발! ${r.course} ${tee} 티오프 (운전 ${info.travelMin}분)`,`TRIGGER:-PT${before}M`,"END:VALARM",
+    "END:VEVENT","END:VCALENDAR"].join("\r\n");
+}
+function addAlarm(id){
+  const r=store.rounds.find(x=>x.id===id); if(!r) return;
+  const ics=makeICS(r); if(!ics){ toast("이동시간 계산 후 눌러주세요"); return; }
+  const blob=new Blob([ics],{type:"text/calendar;charset=utf-8"}), url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=`golf-${r.date}.ics`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),4000);
+  toast("캘린더에 출발 알람 추가");
+}
+function saveTravelOverride(id){ const r=store.rounds.find(x=>x.id===id); if(!r) return;
+  const v=document.getElementById(`tov-${id}`).value; r.travel_override=v===""?null:Number(v); saveStore(store); renderRounds(); toast("이동시간 지정 저장"); }
+function travelHtml(r){
+  const t=r.travel;
+  if(!t) return `<div class="travel-box">🚗 이동시간 계산 중...</div>`;
+  const info=departureInfo(r);
+  const est = (t && t.minutes!=null) ? `예상 <b>${t.minutes}분</b>${t.km!=null?` (${t.km}km)`:""}` : (t&&t.error?`위치 못 찾음`:`-`);
+  const ovr = (r.travel_override!=null&&r.travel_override!=="") ? ` · ✏️지정 <b>${r.travel_override}분</b>` : "";
+  const dep = info ? `<div class="travel-dep">🕐 <b>${info.depart}</b> 출발 → ${info.arrive} 도착 (티오프 ${info.tee}, 1시간 전)</div>`
+                   : `<div class="travel-dep muted">이동시간이 있어야 출발시간이 계산됩니다</div>`;
+  return `<div class="travel-card">
+    <div class="travel-line">🚗 이동 ${est}${ovr} <span class="tsrc">· OSRM(교통량 미반영)</span></div>
+    ${dep}
+    <div class="travel-actions">
+      <a class="tbtn" href="${naverDir(r)}" target="_blank" rel="noopener">🗺️ 네이버 길찾기</a>
+      <button class="tbtn" onclick="addAlarm(${r.id})">⏰ 출발알람</button>
+      <span class="mini-form"><input type="number" id="tov-${r.id}" placeholder="분" value="${r.travel_override??""}" style="width:54px">
+      <button class="secondary" onclick="saveTravelOverride(${r.id})">시간지정</button></span>
+    </div></div>`;
+}
 function roundCard(r){
   return `<div class="round-card" data-id="${r.id}">
     <div class="round-top"><div>
@@ -472,6 +563,7 @@ function roundCard(r){
       <div class="round-date">${r.date} · ⛳ 티오프 ${r.tee_time||"미정"}</div>
     </div><div>${scorePill(r.score, r.par)}</div></div>
     <div class="weather-slot">${weatherHtml(r.weather)}</div>
+    <div class="travel-slot">${travelHtml(r)}</div>
     <div class="round-actions">
       <div class="mini-form"><input type="number" id="score-${r.id}" placeholder="스코어" value="${r.score??""}">
         <button class="secondary" onclick="saveScore(${r.id})">스코어</button></div>
@@ -502,6 +594,10 @@ function renderRounds(){
   // lazy-load weather for shown rounds
   shown.forEach(r=>{ getWeather(r).then(w=>{
     const el=document.querySelector(`.round-card[data-id="${r.id}"] .weather-slot`); if(el) el.innerHTML=weatherHtml(w);
+  }); });
+  // lazy-load travel time for shown rounds
+  shown.forEach(r=>{ getTravel(r).then(()=>{
+    const el=document.querySelector(`.round-card[data-id="${r.id}"] .travel-slot`); if(el) el.innerHTML=travelHtml(r);
   }); });
 }
 function renderStats(){
