@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>골프 스케줄러</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2f6e4f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="골프 스케줄러">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<style>
+  :root {
+    --green: #2f6e4f;
+    --green-light: #e8f3ec;
+    --ink: #1f2a24;
+    --muted: #6b7a72;
+    --card-bg: #ffffff;
+    --bg: #f4f7f5;
+    --danger: #c0392b;
+    --border: #e3e9e5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+  }
+  header {
+    background: linear-gradient(135deg, var(--green), #234f38);
+    color: white;
+    padding: calc(20px + env(safe-area-inset-top)) 20px 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+  }
+  header h1 { margin: 0 0 4px 0; font-size: 22px; }
+  header p { margin: 0; opacity: 0.85; font-size: 13px; }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 16px;
+    display: grid;
+    gap: 16px;
+  }
+  .card {
+    background: var(--card-bg);
+    border-radius: 14px;
+    padding: 16px;
+    box-shadow: 0 2px 12px rgba(30, 50, 40, 0.06);
+    border: 1px solid var(--border);
+  }
+  .card h2 {
+    margin: 0 0 14px 0;
+    font-size: 17px;
+    color: var(--green);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .field label { font-size: 12px; color: var(--muted); }
+  input[type="date"], input[type="text"], input[type="number"], input[type="time"] {
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    font-size: 16px;
+    background: #fafcfb;
+    width: 100%;
+  }
+  input:focus { outline: 2px solid var(--green-light); border-color: var(--green); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  button {
+    background: var(--green);
+    color: white;
+    border: none;
+    padding: 12px 16px;
+    border-radius: 9px;
+    font-size: 15px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button:active { background: #245a3f; }
+  button.secondary { background: #eef3f0; color: var(--green); font-weight: 600; }
+  button.danger { background: #fbeceb; color: var(--danger); font-weight: 600; }
+  button.full { width: 100%; }
+
+  /* search */
+  .search-wrap { position: relative; }
+  .search-row { display: flex; gap: 6px; }
+  .search-row input { flex: 1; }
+  .search-row button { white-space: nowrap; }
+  .search-results {
+    background: #fff; border: 1px solid var(--border); border-radius: 9px;
+    margin-top: 6px; max-height: 260px; overflow-y: auto; display: none;
+  }
+  .search-results.show { display: block; }
+  .search-item { padding: 11px 12px; font-size: 14px; cursor: pointer; border-bottom: 1px solid var(--border); }
+  .search-item:last-child { border-bottom: none; }
+  .search-item:active { background: var(--green-light); }
+  .search-item .name { font-weight: 700; }
+  .search-item .sub { color: var(--muted); font-size: 12px; }
+  .picked-note { font-size: 12px; color: var(--green); margin-top: 6px; font-weight: 600; }
+
+  /* rounds */
+  .round-list { display: grid; gap: 12px; }
+  .round-card { border: 1px solid var(--border); border-radius: 12px; padding: 14px; display: grid; gap: 10px; background: #fdfefd; }
+  .round-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .round-course { font-size: 16px; font-weight: 700; }
+  .round-date { font-size: 12px; color: var(--muted); }
+  .score-pill { display: inline-block; background: #eef3f0; color: var(--green); border-radius: 20px; padding: 4px 12px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .score-pill.over { color: #b45309; background: #fdf3e3; }
+  .score-pill.under { color: var(--green); background: #e6f3ea; }
+  .empty-msg { color: var(--muted); font-size: 14px; padding: 12px 0; }
+
+  /* weather */
+  .weather-box { background: var(--green-light); border-radius: 10px; padding: 10px 12px; font-size: 13px; color: var(--muted); }
+  .weather-card { background: var(--green-light); border-radius: 10px; padding: 12px; display: grid; gap: 10px; }
+  .weather-summary { display: flex; flex-wrap: wrap; gap: 6px; }
+  .wchip { display: inline-flex; align-items: center; gap: 4px; background: #fff; border-radius: 20px; padding: 4px 10px; font-size: 12px; border: 1px solid var(--border); }
+  .wchip.rain-yes { color: #1d4ed8; }
+  .hourly-table { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+  .hour-cell { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 7px 2px; text-align: center; font-size: 11px; }
+  .hour-cell .h-time { font-weight: 700; }
+  .hour-cell .h-emoji { font-size: 18px; display: block; margin: 1px 0; }
+  .hour-cell .h-temp { font-weight: 700; color: var(--green); font-size: 13px; }
+  .hour-cell .h-meta { color: var(--muted); font-size: 10px; margin-top: 1px; }
+  .weather-loc { font-size: 11px; color: var(--muted); }
+
+  .round-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .mini-form { display: flex; gap: 6px; align-items: center; }
+  .mini-form input { width: 78px; }
+
+  /* calendar */
+  .cal-head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .cal-select { padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; font-size: 15px; background: #fafcfb; font-weight: 600; color: var(--ink); flex: 1; }
+  .cal-nav { padding: 9px 12px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .cal-dow { text-align: center; font-size: 11px; color: var(--muted); padding: 2px 0; font-weight: 600; }
+  .cal-dow.sun { color: #c0392b; }
+  .cal-dow.sat { color: #2563eb; }
+  .cal-cell { min-height: 38px; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 7px; font-size: 13px; background: #fafcfb; border: 1px solid transparent; }
+  .cal-cell.empty { background: transparent; }
+  .cal-cell.today { border-color: var(--green); font-weight: 700; }
+  .cal-cell.has-round { background: var(--green); color: #fff; font-weight: 700; }
+  .cal-cell.selected { outline: 2px solid var(--green); outline-offset: -2px; }
+  .cal-cell .dot { width: 5px; height: 5px; border-radius: 50%; background: #fff; margin-top: 2px; }
+  .filter-banner { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: var(--green-light); border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 13px; color: var(--green); font-weight: 600; }
+
+  /* stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .stat-tile { background: var(--green-light); border-radius: 10px; padding: 14px; text-align: center; }
+  .stat-tile .value { font-size: 24px; font-weight: 800; color: var(--green); }
+  .stat-tile .label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+  .toast { position: fixed; bottom: calc(20px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); background: var(--ink); color: white; padding: 10px 18px; border-radius: 8px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity 0.25s ease; z-index: 100; }
+  .toast.show { opacity: 0.95; }
+  .section-tag { font-size: 12px; background: var(--green-light); color: var(--green); padding: 2px 10px; border-radius: 20px; font-weight: 700; margin-left: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⛳ 골프 스케줄러</h1>
+  <p>라운드 일정 · 골프장 날씨 · 스코어를 한 곳에서</p>
+</header>
+
+<main>
+  <section class="card">
+    <h2>📅 일정 추가</h2>
+    <div class="row2">
+      <div class="field">
+        <label for="date-input">날짜</label>
+        <input type="date" id="date-input" required>
+      </div>
+      <div class="field">
+        <label for="tee-input">티오프 시간</label>
+        <input type="time" id="tee-input" value="07:00" required>
+      </div>
+    </div>
+    <div class="field search-wrap">
+      <label for="course-input">골프장 (이름 입력 후 검색)</label>
+      <div class="search-row">
+        <input type="text" id="course-input" placeholder="예: 해비치, 남서울" autocomplete="off">
+        <button type="button" class="secondary" id="search-btn">🔍 검색</button>
+      </div>
+      <div class="search-results" id="search-results"></div>
+      <div class="picked-note" id="picked-note" style="display:none;"></div>
+    </div>
+    <button type="button" class="full" id="add-btn">추가하기</button>
+  </section>
+
+  <section class="card">
+    <h2>🗓️ 달력</h2>
+    <div class="cal-head">
+      <button type="button" class="secondary cal-nav" id="cal-prev">‹</button>
+      <select id="cal-year" class="cal-select"></select>
+      <select id="cal-month" class="cal-select"></select>
+      <button type="button" class="secondary cal-nav" id="cal-next">›</button>
+    </div>
+    <div class="cal-grid" id="cal-grid"></div>
+  </section>
+
+  <section class="card">
+    <h2>🏌️ 라운드 목록 <span class="section-tag" id="round-count">0</span></h2>
+    <div class="round-list" id="round-list"></div>
+  </section>
+
+  <section class="card">
+    <h2>📊 통계</h2>
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-tile"><div class="value" id="stat-total">0</div><div class="label">총 플레이 횟수</div></div>
+      <div class="stat-tile"><div class="value" id="stat-monthly">0</div><div class="label">월평균 플레이</div></div>
+      <div class="stat-tile"><div class="value" id="stat-yearly">0</div><div class="label">연평균 플레이</div></div>
+      <div class="stat-tile"><div class="value" id="stat-score">-</div><div class="label">평균 스코어</div></div>
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+// ===================== constants =====================
+const DEFAULT_PAR = 72, DEFAULT_TEE = "07:00", CACHE_HOURS = 12, ROUND_HOURS = 5, FORECAST_MAX_DAYS = 16;
+const GEOCODE = "https://nominatim.openstreetmap.org/search";
+const FORECAST = "https://api.open-meteo.com/v1/forecast";
+const GOLF_SUFFIXES = ["cc", "gc", "컨트리클럽", "골프클럽", "골프장"];
+const WMO = {
+  0:["맑음","☀️"],1:["대체로 맑음","⛅"],2:["구름 조금","⛅"],3:["흐림","☁️"],
+  45:["안개","🌫️"],48:["짙은 안개","🌫️"],51:["이슬비","🌧️"],53:["이슬비","🌧️"],55:["강한 이슬비","🌧️"],
+  56:["어는 이슬비","🌧️"],57:["강한 어는 이슬비","🌧️"],61:["약한 비","🌧️"],63:["비","🌧️"],65:["강한 비","🌧️"],
+  66:["어는 비","🌧️"],67:["강한 어는 비","🌧️"],71:["약한 눈","❄️"],73:["눈","❄️"],75:["강한 눈","❄️"],77:["싸락눈","❄️"],
+  80:["약한 소나기","🌦️"],81:["소나기","🌦️"],82:["강한 소나기","🌦️"],85:["약한 눈 소나기","🌨️"],86:["강한 눈 소나기","🌨️"],
+  95:["뇌우","⛈️"],96:["우박 동반 뇌우","⛈️"],99:["강한 우박 동반 뇌우","⛈️"]
+};
+function wmo(code){ const c = parseInt(code); return WMO[c] || ["알 수 없음","❓"]; }
+
+// ===================== data (localStorage) =====================
+const STORE_KEY = "golf_scheduler_v1";
+function loadStore(){
+  try { const d = JSON.parse(localStorage.getItem(STORE_KEY)); if(d && d.rounds) return d; } catch(e){}
+  return { rounds: [], next_id: 1 };
+}
+function saveStore(s){ localStorage.setItem(STORE_KEY, JSON.stringify(s)); }
+let store = loadStore();
+
+// ===================== helpers =====================
+function pad2(n){ return String(n).padStart(2,"0"); }
+function fmtTemp(v){ return (v===null||v===undefined) ? "-" : Math.round(v*10)/10; }
+function escapeHtml(s){ const d=document.createElement("div"); d.textContent=s??""; return d.innerHTML; }
+function toast(msg){ const el=document.getElementById("toast"); el.textContent=msg; el.classList.add("show"); setTimeout(()=>el.classList.remove("show"),2200); }
+function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`; }
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+// ===================== golf course search (Nominatim, golf-only) =====================
+function golfCoreName(q){
+  q=(q||"").trim(); const ql=q.toLowerCase();
+  const sorted=[...GOLF_SUFFIXES].sort((a,b)=>b.length-a.length);
+  for(const suf of sorted){ const s=suf.toLowerCase();
+    if(ql.endsWith(" "+s)) return q.slice(0, q.length-suf.length-1).trim();
+    if(ql.endsWith(s)) return q.slice(0, q.length-suf.length).trim();
+  }
+  return q;
+}
+function golfVariants(q){
+  const core=golfCoreName(q);
+  const raw=[q.trim(), core, core+"cc", core+" 컨트리클럽", core+" 골프클럽", core+" 골프장", core+"gc"];
+  const seen=new Set(), out=[];
+  for(let v of raw){ v=v.trim(); if(v && !seen.has(v.toLowerCase())){ seen.add(v.toLowerCase()); out.push(v); } }
+  return out;
+}
+function isGolf(item){ return item.type==="golf_course" || item.type==="golf"; }
+async function searchCourses(query){
+  const seen=new Set(), results=[];
+  for(const v of golfVariants(query)){
+    try {
+      const url=`${GEOCODE}?q=${encodeURIComponent(v)}&format=json&limit=8&accept-language=ko`;
+      const res=await fetch(url, { headers:{ "Accept":"application/json" } });
+      const rows=await res.json();
+      for(const it of rows||[]){
+        if(!isGolf(it)) continue;
+        if(seen.has(it.osm_id)) continue;
+        const lat=parseFloat(it.lat), lon=parseFloat(it.lon);
+        if(isNaN(lat)||isNaN(lon)) continue;
+        seen.add(it.osm_id);
+        results.push({ display_name: it.display_name || v, lat, lon });
+      }
+    } catch(e){ /* skip variant */ }
+    await sleep(500); // be polite to Nominatim
+  }
+  return results;
+}
+
+// ===================== weather (Open-Meteo hourly) =====================
+function normalizeTeeHour(t){ if(!t) t=DEFAULT_TEE; let h=parseInt(String(t).split(":")[0]); if(isNaN(h)) h=7; return Math.max(0,Math.min(23,h)); }
+function cloudLabel(p){ if(p===null||p===undefined) return "알 수 없음"; if(p<20) return "맑음"; if(p<50) return "구름 조금"; if(p<80) return "구름 많음"; return "흐림"; }
+function selectTeeHours(hourly, dateStr, teeTime, count=ROUND_HOURS){
+  const times=(hourly&&hourly.time)||[]; const startH=normalizeTeeHour(teeTime);
+  const key=`${dateStr}T${pad2(startH)}:00`; const start=times.indexOf(key);
+  if(start<0) return [];
+  const out=[];
+  for(let i=start;i<Math.min(start+count,times.length);i++){
+    const code=hourly.weather_code?hourly.weather_code[i]:null; const [desc,emoji]=wmo(code);
+    out.push({ time: times[i].slice(-5), temp: pick(hourly.temperature_2m,i), precip_prob: pick(hourly.precipitation_probability,i),
+               precip: pick(hourly.precipitation,i), cloud: pick(hourly.cloud_cover,i), desc, emoji });
+  }
+  return out;
+}
+function pick(a,i){ return (a && i<a.length) ? a[i] : null; }
+function summarizeHours(hours){
+  if(!hours||!hours.length) return { has_data:false };
+  const temps=hours.map(h=>h.temp).filter(v=>v!=null);
+  const probs=hours.map(h=>h.precip_prob).filter(v=>v!=null);
+  const precs=hours.map(h=>h.precip).filter(v=>v!=null);
+  const clouds=hours.map(h=>h.cloud).filter(v=>v!=null);
+  const maxProb=probs.length?Math.max(...probs):null;
+  const totalPrecip=precs.reduce((a,b)=>a+b,0);
+  const rain=(maxProb!=null&&maxProb>=50)||totalPrecip>0.1;
+  const avgCloud=clouds.length?clouds.reduce((a,b)=>a+b,0)/clouds.length:null;
+  const start=hours[0].temp, tmin=temps.length?Math.min(...temps):null, tmax=temps.length?Math.max(...temps):null;
+  let trend="알 수 없음";
+  if(start!=null&&tmax!=null&&tmin!=null){
+    if(tmax-start>=1 && tmax-start>=start-tmin) trend="상승";
+    else if(start-tmin>=1) trend="하강"; else trend="비슷";
+  }
+  return { has_data:true, rain_expected:rain, max_precip_prob:maxProb, avg_cloud:avgCloud!=null?Math.round(avgCloud):null,
+           cloud_label:cloudLabel(avgCloud), start_temp:start, temp_min:tmin, temp_max:tmax, temp_trend:trend, hours };
+}
+function cacheFresh(fetchedAt){
+  if(!fetchedAt) return false;
+  const then=new Date(fetchedAt).getTime(); if(isNaN(then)) return false;
+  return (Date.now()-then) < CACHE_HOURS*3600*1000;
+}
+async function getWeather(round, force){
+  if(round.weather && !force && cacheFresh(round.weather.fetched_at)) return round.weather;
+  const result={ fetched_at: new Date().toISOString() };
+  try {
+    let lat=round.lat, lon=round.lon, resolved=round.resolved_name||round.course;
+    if(lat==null||lon==null){
+      const found=await searchCourses(round.course);
+      if(!found.length){ result.error="골프장 위치를 찾을 수 없습니다."; round.weather=result; saveStore(store); return result; }
+      lat=found[0].lat; lon=found[0].lon; resolved=found[0].display_name;
+    }
+    result.resolved_name=resolved; result.lat=lat; result.lon=lon;
+    const target=new Date(round.date+"T00:00:00"); const now=new Date(); now.setHours(0,0,0,0);
+    const diffDays=(target-now)/86400000;
+    if(diffDays<0 || diffDays>FORECAST_MAX_DAYS){ result.out_of_range=true; }
+    else {
+      const url=`${FORECAST}?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,precipitation_probability,precipitation,cloud_cover,weather_code&timezone=Asia%2FSeoul&start_date=${round.date}&end_date=${round.date}`;
+      const res=await fetch(url); const data=await res.json();
+      const hrs=selectTeeHours(data.hourly||{}, round.date, round.tee_time||DEFAULT_TEE);
+      Object.assign(result, hrs.length ? summarizeHours(hrs) : { out_of_range:true });
+    }
+  } catch(e){ result.error="날씨 정보를 가져오지 못했습니다."; }
+  round.weather=result; saveStore(store); return result;
+}
+
+// ===================== stats =====================
+function computeStats(){
+  const today=todayStr();
+  const played=store.rounds.filter(r=> r.date<today || r.score!=null);
+  const months={}, years={}; const scores=[];
+  for(const r of played){
+    const [y,m]=r.date.split("-"); months[`${y}-${m}`]=(months[`${y}-${m}`]||0)+1; years[y]=(years[y]||0)+1;
+    if(r.score!=null) scores.push(r.score);
+  }
+  const mk=Object.keys(months), yk=Object.keys(years);
+  const monthlyAvg=mk.length? mk.reduce((a,k)=>a+months[k],0)/mk.length : 0;
+  const yearlyAvg=yk.length? yk.reduce((a,k)=>a+years[k],0)/yk.length : 0;
+  const avgScore=scores.length? scores.reduce((a,b)=>a+b,0)/scores.length : null;
+  return { total: played.length, monthly: Math.round(monthlyAvg*100)/100, yearly: Math.round(yearlyAvg*100)/100,
+           avgScore: avgScore!=null?Math.round(avgScore*100)/100:null };
+}
+
+// ===================== rendering =====================
+function scorePill(score,par){
+  if(score==null) return `<span class="score-pill">스코어 미입력</span>`;
+  const diff=score-(par||72); const cls=diff>0?"over":(diff<0?"under":"");
+  const label=`${score}타 (${diff===0?"이븐":(diff>0?"+"+diff:diff)})`;
+  return `<span class="score-pill ${cls}">${label}</span>`;
+}
+function weatherHtml(w){
+  if(!w) return `<div class="weather-box">날씨 불러오는 중...</div>`;
+  if(w.error) return `<div class="weather-box">⚠️ ${w.error}</div>`;
+  if(w.out_of_range) return `<div class="weather-box">📅 예보 범위 밖 (약 16일 이내만 제공)</div>`;
+  if(!w.has_data) return `<div class="weather-box">날씨 정보 없음</div>`;
+  const arrow={"상승":"↗","하강":"↘","비슷":"→"}[w.temp_trend]||"";
+  const rainChip=w.rain_expected
+    ? `<span class="wchip rain-yes">🌧️ <b>비 예상</b> (최대 ${w.max_precip_prob??"-"}%)</span>`
+    : `<span class="wchip">☀️ <b>비 없음</b> (최대 ${w.max_precip_prob??"-"}%)</span>`;
+  const hours=(w.hours||[]).map(h=>`
+    <div class="hour-cell"><div class="h-time">${h.time}</div><span class="h-emoji">${h.emoji}</span>
+    <div class="h-temp">${fmtTemp(h.temp)}°</div><div class="h-meta">☔${h.precip_prob??"-"}%<br>☁️${h.cloud??"-"}%</div></div>`).join("");
+  return `<div class="weather-card">
+    <div class="weather-summary">${rainChip}
+      <span class="wchip">☁️ <b>${w.cloud_label}</b> (${w.avg_cloud??"-"}%)</span>
+      <span class="wchip">🌡️ 시작 <b>${fmtTemp(w.start_temp)}°</b></span>
+      <span class="wchip">${fmtTemp(w.temp_min)}° ~ ${fmtTemp(w.temp_max)}° ${arrow}</span></div>
+    <div class="hourly-table">${hours}</div>
+    <div class="weather-loc">📍 ${escapeHtml(w.resolved_name||"")} · 티오프 후 5시간 예보</div></div>`;
+}
+function roundCard(r){
+  return `<div class="round-card" data-id="${r.id}">
+    <div class="round-top"><div>
+      <div class="round-course">${escapeHtml(r.course)}</div>
+      <div class="round-date">${r.date} · ⛳ 티오프 ${r.tee_time||"미정"}</div>
+    </div><div>${scorePill(r.score, r.par)}</div></div>
+    <div class="weather-slot">${weatherHtml(r.weather)}</div>
+    <div class="round-actions">
+      <div class="mini-form"><input type="number" id="score-${r.id}" placeholder="스코어" value="${r.score??""}">
+        <button class="secondary" onclick="saveScore(${r.id})">스코어</button></div>
+      <div class="mini-form"><input type="time" id="tee-${r.id}" value="${r.tee_time||"07:00"}">
+        <button class="secondary" onclick="saveTee(${r.id})">티오프</button></div>
+      <button class="secondary" onclick="refreshWeather(${r.id})">🔄</button>
+      <button class="danger" onclick="delRound(${r.id})">삭제</button>
+    </div></div>`;
+}
+
+let selectedDate=null;
+function renderRounds(){
+  const list=document.getElementById("round-list");
+  const sorted=[...store.rounds].sort((a,b)=>a.date.localeCompare(b.date));
+  const shown=selectedDate? sorted.filter(r=>r.date===selectedDate) : sorted;
+  document.getElementById("round-count").textContent=shown.length;
+  let html="";
+  if(selectedDate){
+    html+=`<div class="filter-banner"><span>📅 ${selectedDate} (${shown.length}개)</span>
+      <button class="secondary" onclick="clearFilter()">전체 보기</button></div>`;
+  }
+  if(!shown.length){
+    html+= selectedDate ? `<div class="empty-msg">이 날짜에 라운드가 없습니다.</div>`
+                        : `<div class="empty-msg">등록된 라운드가 없습니다. 위에서 추가해보세요.</div>`;
+  } else { html+=shown.map(roundCard).join(""); }
+  list.innerHTML=html;
+  renderCalendar();
+  // lazy-load weather for shown rounds
+  shown.forEach(r=>{ getWeather(r).then(w=>{
+    const el=document.querySelector(`.round-card[data-id="${r.id}"] .weather-slot`); if(el) el.innerHTML=weatherHtml(w);
+  }); });
+}
+function renderStats(){
+  const s=computeStats();
+  document.getElementById("stat-total").textContent=s.total;
+  document.getElementById("stat-monthly").textContent=s.monthly;
+  document.getElementById("stat-yearly").textContent=s.yearly;
+  document.getElementById("stat-score").textContent=s.avgScore??"-";
+}
+
+// ===================== calendar =====================
+const DOW=["일","월","화","수","목","금","토"], MONTHS=["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+let calRef=null;
+function localToday(){ const d=new Date(); return {y:d.getFullYear(),m:d.getMonth(),d:d.getDate()}; }
+function defaultCalMonth(){
+  const t=localToday(), ts=todayStr();
+  const up=store.rounds.map(r=>r.date).filter(d=>d>=ts).sort()[0] || store.rounds.map(r=>r.date).sort().slice(-1)[0];
+  if(up){ const [y,m]=up.split("-").map(Number); return {y,m:m-1}; }
+  return {y:t.y,m:t.m};
+}
+function populateCalSelectors(){
+  const t=localToday(); const ys=store.rounds.map(r=>Number(r.date.split("-")[0]));
+  const minY=Math.min(t.y-2,calRef.y,...(ys.length?ys:[t.y])), maxY=Math.max(t.y+3,calRef.y,...(ys.length?ys:[t.y]));
+  const yS=document.getElementById("cal-year"), mS=document.getElementById("cal-month");
+  let yo=""; for(let y=minY;y<=maxY;y++) yo+=`<option value="${y}" ${y===calRef.y?"selected":""}>${y}년</option>`;
+  yS.innerHTML=yo; mS.innerHTML=MONTHS.map((mm,i)=>`<option value="${i}" ${i===calRef.m?"selected":""}>${mm}</option>`).join("");
+}
+function renderCalendar(){
+  if(!calRef) calRef=defaultCalMonth();
+  populateCalSelectors();
+  const {y,m}=calRef, t=localToday();
+  const roundDays=new Set(store.rounds.filter(r=>{const[ry,rm]=r.date.split("-").map(Number);return ry===y&&rm-1===m;}).map(r=>Number(r.date.split("-")[2])));
+  const firstDow=new Date(y,m,1).getDay(), days=new Date(y,m+1,0).getDate();
+  let cells=DOW.map((d,i)=>`<div class="cal-dow ${i===0?"sun":(i===6?"sat":"")}">${d}</div>`).join("");
+  for(let i=0;i<firstDow;i++) cells+=`<div class="cal-cell empty"></div>`;
+  for(let day=1;day<=days;day++){
+    const ds=`${y}-${pad2(m+1)}-${pad2(day)}`;
+    const cls=["cal-cell", (y===t.y&&m===t.m&&day===t.d)?"today":"", roundDays.has(day)?"has-round":"", selectedDate===ds?"selected":""].filter(Boolean).join(" ");
+    cells+=`<div class="${cls}" data-date="${ds}">${day}${roundDays.has(day)?'<span class="dot"></span>':""}</div>`;
+  }
+  const grid=document.getElementById("cal-grid"); grid.innerHTML=cells;
+  grid.querySelectorAll(".cal-cell[data-date]").forEach(el=>el.addEventListener("click",()=>selectDate(el.dataset.date)));
+}
+function selectDate(ds){ selectedDate=(selectedDate===ds)?null:ds; renderRounds(); }
+function clearFilter(){ selectedDate=null; renderRounds(); }
+
+// ===================== actions =====================
+let picked=null;
+async function doSearch(){
+  const q=document.getElementById("course-input").value.trim(); if(!q) return;
+  const box=document.getElementById("search-results");
+  box.innerHTML=`<div class="search-item">검색 중... (골프장만 찾는 중, 몇 초 걸려요)</div>`; box.classList.add("show");
+  try{
+    const results=await searchCourses(q);
+    if(!results.length){ box.innerHTML=`<div class="search-item">골프장을 못 찾았어요. 이름 그대로 추가할 수 있어요.</div>`; return; }
+    box.innerHTML=results.map((r,i)=>`<div class="search-item" data-i="${i}"><div class="name">${escapeHtml(r.display_name.split(",")[0])}</div><div class="sub">${escapeHtml(r.display_name)}</div></div>`).join("");
+    box.querySelectorAll(".search-item[data-i]").forEach(el=>el.addEventListener("click",()=>{
+      picked=results[Number(el.dataset.i)];
+      document.getElementById("course-input").value=picked.display_name.split(",")[0];
+      const n=document.getElementById("picked-note"); n.textContent=`✓ 선택됨: ${picked.display_name}`; n.style.display="block";
+      box.classList.remove("show");
+    }));
+  }catch(e){ box.innerHTML=`<div class="search-item">검색 실패</div>`; }
+}
+function addRound(){
+  const date=document.getElementById("date-input").value;
+  const tee=document.getElementById("tee-input").value||DEFAULT_TEE;
+  const course=document.getElementById("course-input").value.trim();
+  if(!date||!course){ toast("날짜와 골프장을 입력하세요"); return; }
+  const r={ id:store.next_id++, date, course, tee_time:tee, score:null, par:DEFAULT_PAR, weather:null,
+            lat:picked?picked.lat:null, lon:picked?picked.lon:null, resolved_name:picked?picked.display_name.split(",").slice(0,3).join(","):null };
+  store.rounds.push(r); saveStore(store);
+  document.getElementById("course-input").value=""; document.getElementById("picked-note").style.display="none"; picked=null;
+  renderRounds(); renderStats(); toast("라운드를 추가했습니다");
+}
+function delRound(id){ if(!confirm("이 라운드를 삭제할까요?")) return; store.rounds=store.rounds.filter(r=>r.id!==id); saveStore(store); renderRounds(); renderStats(); toast("삭제했습니다"); }
+function saveScore(id){ const r=store.rounds.find(x=>x.id===id); if(!r) return; const v=document.getElementById(`score-${id}`).value; r.score=v===""?null:Number(v); saveStore(store); renderRounds(); renderStats(); toast("스코어 저장"); }
+function saveTee(id){ const r=store.rounds.find(x=>x.id===id); if(!r) return; r.tee_time=document.getElementById(`tee-${id}`).value; r.weather=null; saveStore(store); renderRounds(); toast("티오프 저장"); }
+async function refreshWeather(id){ const r=store.rounds.find(x=>x.id===id); if(!r) return;
+  const el=document.querySelector(`.round-card[data-id="${id}"] .weather-slot`); if(el) el.innerHTML=`<div class="weather-box">새로고침 중...</div>`;
+  const w=await getWeather(r,true); if(el) el.innerHTML=weatherHtml(w); toast("날씨 새로고침"); }
+
+// ===================== wire up =====================
+document.getElementById("search-btn").addEventListener("click", doSearch);
+document.getElementById("add-btn").addEventListener("click", addRound);
+document.getElementById("course-input").addEventListener("input", ()=>{ picked=null; document.getElementById("picked-note").style.display="none"; });
+document.getElementById("course-input").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); doSearch(); } });
+document.addEventListener("click", e=>{ if(!e.target.closest(".search-wrap")) document.getElementById("search-results").classList.remove("show"); });
+document.getElementById("cal-year").addEventListener("change", e=>{ calRef={y:Number(e.target.value),m:calRef.m}; renderCalendar(); });
+document.getElementById("cal-month").addEventListener("change", e=>{ calRef={y:calRef.y,m:Number(e.target.value)}; renderCalendar(); });
+document.getElementById("cal-prev").addEventListener("click", ()=>{ calRef=calRef.m===0?{y:calRef.y-1,m:11}:{y:calRef.y,m:calRef.m-1}; renderCalendar(); });
+document.getElementById("cal-next").addEventListener("click", ()=>{ calRef=calRef.m===11?{y:calRef.y+1,m:0}:{y:calRef.y,m:calRef.m+1}; renderCalendar(); });
+
+document.getElementById("date-input").value=todayStr();
+renderRounds(); renderStats();
+
+// service worker for offline / installability
+if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
+</script>
+</body>
+</html>
