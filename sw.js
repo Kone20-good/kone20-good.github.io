@@ -1,6 +1,6 @@
 // 골프 스케줄러 service worker — offline app shell caching.
 // deploy pipeline verified 2026-07-28 (edit→push→Pages)
-const CACHE = "golf-scheduler-v8";
+const CACHE = "golf-scheduler-v9";
 const SHELL = [
   "./",
   "./index.html",

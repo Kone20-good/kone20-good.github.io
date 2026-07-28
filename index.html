@@ -245,7 +245,7 @@ const KMA_MAX_DAYS = 2; // 오늘(0)·내일(1)·모레(2)까지 기상청 사�
 const HOME = { lat: 37.3596, lon: 127.1064, label: "정자일로 100" };
 const OSRM = "https://router.project-osrm.org/route/v1/driving";
 const ARRIVE_BEFORE_MIN = 60; // 티오프 1시간 전 도착 목표
-const DRIVE_BUFFER_MIN = 5; // 집→주차장→도로 진입 버퍼
+const DRIVE_BUFFER_MIN = 10; // 집→주차장→도로 진입 등 여유 버퍼
 const GOLF_SUFFIXES = ["cc", "gc", "컨트리클럽", "골프클럽", "골프장"];
 const WMO = {
   0:["맑음","☀️"],1:["대체로 맑음","⛅"],2:["구름 조금","⛅"],3:["흐림","☁️"],
@@ -484,7 +484,7 @@ function weatherHtml(w){
 }
 // ===================== travel time + departure alarm =====================
 async function getTravel(round, force){
-  if(round.travel && !force) return round.travel;
+  if(round.travel && round.travel.drive!=null && !force) return round.travel;
   let lat=round.lat, lon=round.lon;
   if(lat==null||lon==null){
     try{ const found=await searchCourses(round.course); if(found.length){ lat=found[0].lat; lon=found[0].lon; round.lat=lat; round.lon=lon; } }catch(e){}
@@ -494,11 +494,11 @@ async function getTravel(round, force){
   try{
     const res=await fetch(`${OSRM}/${HOME.lon},${HOME.lat};${lon},${lat}?overview=false`);
     const d=await res.json(); const rt=(d.routes||[])[0];
-    if(rt){ t.minutes=Math.round(rt.duration/60)+DRIVE_BUFFER_MIN; t.km=Math.round(rt.distance/100)/10; } else t.error=true;
+    if(rt){ t.drive=Math.round(rt.duration/60); t.km=Math.round(rt.distance/100)/10; } else t.error=true;
   }catch(e){ t.error=true; }
   round.travel=t; saveStore(store); return t;
 }
-function travelMin(r){ return (r.travel && r.travel.minutes!=null) ? r.travel.minutes : null; }
+function travelMin(r){ return (r.travel && r.travel.drive!=null) ? r.travel.drive + DRIVE_BUFFER_MIN : null; }
 function shiftHM(hhmm, deltaMin){ // hhmm에서 deltaMin 분 이동(음수=이전)
   const [h,m]=(hhmm||"07:00").split(":").map(Number); let t=h*60+m+deltaMin;
   t=((t%1440)+1440)%1440; return pad2(Math.floor(t/60))+":"+pad2(t%60);
@@ -551,11 +551,13 @@ function travelHtml(r){
   const t=r.travel;
   if(!t) return `<div class="travel-box">🚗 이동시간 계산 중...</div>`;
   const info=departureInfo(r);
-  const est = (t && t.minutes!=null) ? `예상 <b>${t.minutes}분</b>${t.km!=null?` (${t.km}km)`:""}` : (t&&t.error?`위치 못 찾음`:`-`);
+  const est = (t && t.drive!=null)
+    ? `예상 <b>${t.drive+DRIVE_BUFFER_MIN}분</b>${t.km!=null?` (${t.km}km)`:""} <span class="tsrc">· 운전 ${t.drive} + 버퍼 ${DRIVE_BUFFER_MIN}분(교통량 미반영)</span>`
+    : (t&&t.error?`<b>위치 못 찾음</b>`:`-`);
   const dep = info ? `<div class="travel-dep">🕐 <b>${info.depart}</b> 출발 → ${info.arrive} 도착 (티오프 ${info.tee}, 1시간 전)</div>`
                    : `<div class="travel-dep muted">이동시간이 있어야 출발시간이 계산됩니다</div>`;
   return `<div class="travel-card">
-    <div class="travel-line">🚗 이동 ${est} <span class="tsrc">· 주차 5분 포함(교통량 미반영)</span></div>
+    <div class="travel-line">🚗 이동 ${est}</div>
     ${dep}
     <div class="travel-actions">
       <button class="tbtn" onclick="openNaver(${r.id})">🗺️ 네이버 길찾기</button>
