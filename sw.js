@@ -1,6 +1,5 @@
-// 골프 스케줄러 service worker — offline app shell caching.
-// deploy pipeline verified 2026-07-28 (edit→push→Pages)
-const CACHE = "golf-scheduler-v9";
+// 골프 스케줄러 service worker — network-first (항상 최신, 오프라인 시 캐시 폴백)
+const CACHE = "golf-scheduler-v10";
 const SHELL = [
   "./",
   "./index.html",
@@ -23,19 +22,19 @@ self.addEventListener("activate", (e) => {
 });
 
 self.addEventListener("fetch", (e) => {
+  if (e.request.method !== "GET") return;
   const url = new URL(e.request.url);
-  // Never cache weather / geocoding API calls — always go to network.
-  if (url.hostname.includes("open-meteo.com") || url.hostname.includes("openstreetmap.org") || url.hostname.includes("data.go.kr") || url.hostname.includes("project-osrm.org")) {
-    return; // default network behavior
+  // 날씨/지오코딩/라우팅 API는 항상 네트워크, 캐시하지 않음
+  if (url.hostname.includes("open-meteo.com") || url.hostname.includes("openstreetmap.org") ||
+      url.hostname.includes("data.go.kr") || url.hostname.includes("project-osrm.org")) {
+    return; // 기본 네트워크 동작
   }
-  // App shell: cache-first, fall back to network, then cache the response.
+  // 앱 파일: 네트워크 우선 → 최신 유지, 오프라인일 때만 캐시 폴백
   e.respondWith(
-    caches.match(e.request).then((hit) =>
-      hit || fetch(e.request).then((res) => {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
-        return res;
-      }).catch(() => hit)
-    )
+    fetch(e.request).then((res) => {
+      const copy = res.clone();
+      caches.open(CACHE).then((c) => c.put(e.request, copy)).catch(() => {});
+      return res;
+    }).catch(() => caches.match(e.request))
   );
 });
