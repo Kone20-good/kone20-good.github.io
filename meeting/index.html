@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="회의 브레인">
+<title>회의 브레인</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+  :root{
+    --bg:#f4f6fb; --card:#fff; --ink:#1e2330; --muted:#6b7280; --border:#e4e8f0;
+    --brand:#4f46e5; --brand-light:#eef0fe; --brand-ink:#3730a3;
+    --ok:#16a34a; --ok-light:#eafaf0; --warn:#d97706; --danger:#dc2626; --danger-light:#fdecec;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    -webkit-font-smoothing:antialiased;padding-bottom:40px;}
+  header{background:linear-gradient(135deg,#4f46e5,#7c6cf0);
+    color:#fff;padding:20px 16px 18px;}
+  header h1{margin:0;font-size:22px;letter-spacing:-.3px;}
+  header p{margin:4px 0 0;font-size:13px;opacity:.9;}
+  .wrap{max-width:760px;margin:0 auto;padding:14px 12px;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;}
+  button{background:var(--brand);color:#fff;border:none;padding:10px 14px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;}
+  button:active{opacity:.85}
+  button.sec{background:var(--brand-light);color:var(--brand-ink);}
+  button.ghost{background:#f1f3f9;color:var(--ink);}
+  button.danger{background:var(--danger-light);color:var(--danger);}
+  button.sm{padding:6px 10px;font-size:12px;border-radius:7px;}
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
+  select,input,textarea{font-family:inherit;font-size:14px;border:1px solid var(--border);border-radius:9px;padding:9px 10px;background:#fff;color:var(--ink);width:100%;}
+  textarea{resize:vertical;min-height:64px;line-height:1.5;}
+  label{display:block;font-size:12px;font-weight:700;color:var(--muted);margin:10px 0 4px;}
+  .row{display:flex;gap:8px;}
+  .row>*{flex:1;}
+  .muted{color:var(--muted);}
+  .pill{display:inline-block;background:var(--brand-light);color:var(--brand-ink);border-radius:20px;padding:2px 9px;font-size:11px;font-weight:700;}
+  .section-title{font-size:15px;font-weight:800;margin:2px 0 10px;display:flex;align-items:center;gap:7px;}
+  /* dashboard */
+  .dash{background:linear-gradient(180deg,#fbfbff,#f3f4ff);border-color:#dcdcfb;}
+  .act{display:flex;gap:10px;align-items:flex-start;padding:9px 0;border-top:1px solid var(--border);}
+  .act:first-of-type{border-top:none;}
+  .act input[type=checkbox]{width:20px;height:20px;flex:0 0 auto;margin-top:1px;accent-color:var(--brand);}
+  .act .body{flex:1;font-size:14px;}
+  .act .meta{font-size:11px;color:var(--muted);margin-top:2px;}
+  .act.done .body>.txt{text-decoration:line-through;color:var(--muted);}
+  .badge{font-size:10px;font-weight:800;padding:1px 7px;border-radius:20px;}
+  .badge.owner{background:#eef2ff;color:#4338ca;}
+  .badge.due{background:#fff4e5;color:#b45309;}
+  .badge.overdue{background:#fdecec;color:#b91c1c;}
+  /* meeting card */
+  .mtg-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
+  .mtg-date{font-size:12px;color:var(--muted);font-weight:700;}
+  .mtg-title{font-size:16px;font-weight:800;margin:2px 0 2px;}
+  .mtg-att{font-size:12px;color:var(--muted);}
+  .mtg-body{font-size:14px;line-height:1.6;margin-top:8px;white-space:pre-wrap;}
+  .mtg-actions{margin-top:10px;}
+  .chip{display:inline-flex;align-items:center;gap:5px;background:#f1f3f9;border-radius:8px;padding:4px 9px;font-size:12px;margin:3px 4px 0 0;}
+  details>summary{cursor:pointer;font-size:13px;color:var(--brand-ink);font-weight:700;margin-top:8px;list-style:none;}
+  details>summary::-webkit-details-marker{display:none;}
+  .empty{text-align:center;color:var(--muted);font-size:14px;padding:26px 10px;}
+  .hint{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5;}
+  .hidden{display:none;}
+  .card-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+  hr{border:none;border-top:1px solid var(--border);margin:12px 0;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;transition:opacity .2s;z-index:50;}
+  .toast.show{opacity:.95;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧠 회의 브레인</h1>
+  <p>회의 요약 · 액션 추적 · 다음 회의 진행체크 · 비공개(이 기기 저장)</p>
+</header>
+
+<div class="wrap">
+  <div class="toolbar">
+    <button onclick="toggleForm()">＋ 새 회의</button>
+    <select id="series-filter" onchange="render()" style="flex:1;min-width:140px"></select>
+    <button class="ghost sm" onclick="exportJSON()">내보내기</button>
+    <button class="ghost sm" onclick="document.getElementById('import-file').click()">가져오기</button>
+    <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="importJSON(event)">
+  </div>
+
+  <!-- 새/수정 회의 폼 -->
+  <div class="card hidden" id="form-card">
+    <div class="section-title" id="form-title">📝 새 회의 추가</div>
+    <input type="hidden" id="m-id">
+    <label>시리즈 (프로젝트/상대) — 같은 시리즈끼리 진행이 이어집니다</label>
+    <input id="m-series" list="series-list" placeholder="예: 삼성×Broadcom 협력">
+    <datalist id="series-list"></datalist>
+    <div class="row">
+      <div><label>날짜</label><input type="date" id="m-date"></div>
+      <div><label>제목</label><input id="m-title" placeholder="예: IT 트랜스포메이션 공유"></div>
+    </div>
+    <label>참석자 (쉼표로 구분)</label>
+    <input id="m-att" placeholder="예: 임원석, Alan Davidson, 류경동">
+    <label>요약 / 핵심 내용</label>
+    <textarea id="m-summary" placeholder="회의 요약을 붙여넣으세요"></textarea>
+    <label>결정사항 (한 줄에 하나)</label>
+    <textarea id="m-decisions" placeholder="예: VCF 기반 프라이빗 클라우드로 표준화"></textarea>
+    <label>액션아이템 — 한 줄에 하나, 형식: <b>내용 | 담당 | 기한(YYYY-MM-DD)</b></label>
+    <textarea id="m-actions" placeholder="Broadcom 대시보드 참관 조율 | 삼성 | 2026-08-15
+후속 심화 미팅 일정 잡기 | 양측 |"></textarea>
+    <div class="hint">담당·기한은 생략 가능 (내용만 써도 됩니다)</div>
+    <div class="card-actions">
+      <button onclick="saveMeeting()">저장</button>
+      <button class="ghost sm" onclick="toggleForm(false)">취소</button>
+    </div>
+  </div>
+
+  <!-- 진행 체크 대시보드 -->
+  <div class="card dash" id="dash"></div>
+
+  <!-- 회의 타임라인 -->
+  <div id="timeline"></div>
+
+  <p class="hint" style="text-align:center">데이터는 이 브라우저에만 저장됩니다(비공개). 백업은 <b>내보내기</b>, 복원·이관은 <b>가져오기</b>.</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY="meetingBrain.v1";
+let store=load();
+function load(){ try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.meetings) return s;}catch(e){} return {version:1,next_id:1,meetings:[]}; }
+function save(){ localStorage.setItem(KEY, JSON.stringify(store)); }
+function uid(){ return (store.next_id++).toString(36)+Math.random().toString(36).slice(2,6); }
+function esc(s){ return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function todayStr(){ const d=new Date(); const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; }
+function toast(t){ const el=document.getElementById("toast"); el.textContent=t; el.classList.add("show"); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("show"),1800); }
+
+function seriesNames(){ return [...new Set(store.meetings.map(m=>m.series).filter(Boolean))].sort(); }
+
+// ---- form ----
+function toggleForm(show){
+  const c=document.getElementById("form-card");
+  const willShow = (show===undefined)? c.classList.contains("hidden") : show;
+  if(willShow){ if(!document.getElementById("m-id").value){ resetForm(); } c.classList.remove("hidden"); c.scrollIntoView({behavior:"smooth"}); }
+  else { c.classList.add("hidden"); resetForm(); }
+}
+function resetForm(){
+  document.getElementById("m-id").value="";
+  document.getElementById("m-date").value=todayStr();
+  ["m-series","m-title","m-att","m-summary","m-decisions","m-actions"].forEach(id=>document.getElementById(id).value="");
+  const sf=document.getElementById("series-filter").value;
+  if(sf && sf!=="__all") document.getElementById("m-series").value=sf;
+  document.getElementById("form-title").textContent="📝 새 회의 추가";
+}
+function actionsToText(actions){ return (actions||[]).map(a=>[a.text,a.owner,a.due].filter(x=>x!=null).join(" | ").replace(/(\s\|\s*)+$/,"")).join("\n"); }
+function parseActions(text){
+  return (text||"").split("\n").map(l=>l.trim()).filter(Boolean).map(l=>{
+    const p=l.split("|").map(s=>s.trim());
+    return { id:uid(), text:p[0]||"", owner:p[1]||"", due:p[2]||"", status:"open" };
+  }).filter(a=>a.text);
+}
+function saveMeeting(){
+  const id=document.getElementById("m-id").value;
+  const series=document.getElementById("m-series").value.trim();
+  const date=document.getElementById("m-date").value;
+  const title=document.getElementById("m-title").value.trim();
+  if(!date||!title){ toast("날짜와 제목은 필수입니다"); return; }
+  const att=document.getElementById("m-att").value.split(",").map(s=>s.trim()).filter(Boolean);
+  const summary=document.getElementById("m-summary").value.trim();
+  const decisions=document.getElementById("m-decisions").value.split("\n").map(s=>s.trim()).filter(Boolean);
+  const newActions=parseActions(document.getElementById("m-actions").value);
+  if(id){
+    const m=store.meetings.find(x=>x.id===id);
+    // 기존 액션의 완료상태 보존(내용 동일한 것 매칭)
+    const prev={}; (m.actions||[]).forEach(a=>prev[a.text]=a.status);
+    newActions.forEach(a=>{ if(prev[a.text]==="done") a.status="done"; });
+    Object.assign(m,{series,date,title,attendees:att,summary,decisions,actions:newActions});
+    toast("회의 수정됨");
+  } else {
+    store.meetings.push({id:uid(),series,date,title,attendees:att,summary,decisions,actions:newActions});
+    toast("회의 추가됨");
+  }
+  save(); toggleForm(false); render();
+}
+function editMeeting(id){
+  const m=store.meetings.find(x=>x.id===id); if(!m) return;
+  document.getElementById("m-id").value=m.id;
+  document.getElementById("m-series").value=m.series||"";
+  document.getElementById("m-date").value=m.date||todayStr();
+  document.getElementById("m-title").value=m.title||"";
+  document.getElementById("m-att").value=(m.attendees||[]).join(", ");
+  document.getElementById("m-summary").value=m.summary||"";
+  document.getElementById("m-decisions").value=(m.decisions||[]).join("\n");
+  document.getElementById("m-actions").value=actionsToText(m.actions);
+  document.getElementById("form-title").textContent="✏️ 회의 수정";
+  document.getElementById("form-card").classList.remove("hidden");
+  document.getElementById("form-card").scrollIntoView({behavior:"smooth"});
+}
+function delMeeting(id){ if(!confirm("이 회의를 삭제할까요?")) return; store.meetings=store.meetings.filter(m=>m.id!==id); save(); render(); toast("삭제됨"); }
+function toggleAction(mid,aid){
+  const m=store.meetings.find(x=>x.id===mid); if(!m) return;
+  const a=(m.actions||[]).find(x=>x.id===aid); if(!a) return;
+  a.status=a.status==="done"?"open":"done"; save(); render();
+}
+
+// ---- render ----
+function currentFilter(){ return document.getElementById("series-filter").value; }
+function render(){
+  // series filter dropdown
+  const sf=document.getElementById("series-filter"); const cur=sf.value||"__all";
+  const names=seriesNames();
+  sf.innerHTML=`<option value="__all">전체 시리즈 (${store.meetings.length})</option>`+
+    names.map(n=>`<option value="${esc(n)}">${esc(n)} (${store.meetings.filter(m=>m.series===n).length})</option>`).join("");
+  sf.value=[...sf.options].some(o=>o.value===cur)?cur:"__all";
+  document.getElementById("series-list").innerHTML=names.map(n=>`<option value="${esc(n)}">`).join("");
+
+  const filter=sf.value;
+  let mtgs=store.meetings.slice();
+  if(filter!=="__all") mtgs=mtgs.filter(m=>m.series===filter);
+  mtgs.sort((a,b)=>(b.date||"").localeCompare(a.date||""));
+
+  renderDash(filter, mtgs);
+  renderTimeline(mtgs);
+}
+function renderDash(filter, mtgs){
+  const dash=document.getElementById("dash");
+  // 미완료 액션 모으기 (필터 범위)
+  const open=[];
+  mtgs.forEach(m=>(m.actions||[]).forEach(a=>{ if(a.status!=="done") open.push({m,a}); }));
+  // 기한 임박/지남 순 → 기한 있는 것 먼저, 오래된 회의 먼저
+  open.sort((x,y)=>{
+    const dx=x.a.due||"9999", dy=y.a.due||"9999";
+    if(dx!==dy) return dx.localeCompare(dy);
+    return (x.m.date||"").localeCompare(y.m.date||"");
+  });
+  const scope = filter==="__all" ? "전체" : esc(filter);
+  if(!store.meetings.length){ dash.classList.add("hidden"); return; }
+  dash.classList.remove("hidden");
+  let html=`<div class="section-title">📌 진행 체크 <span class="pill">${scope}</span> <span class="muted" style="font-weight:600;font-size:12px">미완료 ${open.length}건</span></div>`;
+  if(!open.length){ html+=`<div class="muted" style="font-size:13px">미완료 액션이 없습니다. 👍 다음 회의 준비 완료.</div>`; }
+  else{
+    html+=`<div class="hint" style="margin:0 0 6px">다음 회의 시작 때 이것부터 체크하세요 (체크하면 완료 처리)</div>`;
+    html+=open.map(({m,a})=>actionRow(m,a,true)).join("");
+  }
+  dash.innerHTML=html;
+}
+function actionRow(m,a,showSource){
+  const done=a.status==="done";
+  const overdue = a.due && !done && a.due<todayStr();
+  const badges=[
+    a.owner?`<span class="badge owner">👤 ${esc(a.owner)}</span>`:"",
+    a.due?`<span class="badge ${overdue?"overdue":"due"}">📅 ${esc(a.due)}${overdue?" 지남":""}</span>`:""
+  ].join(" ");
+  const src=showSource?`<div class="meta">↳ ${esc(m.date||"")} · ${esc(m.title||"")}</div>`:"";
+  return `<div class="act ${done?"done":""}">
+    <input type="checkbox" ${done?"checked":""} onchange="toggleAction('${m.id}','${a.id}')">
+    <div class="body"><span class="txt">${esc(a.text)}</span> ${badges}${src}</div>
+  </div>`;
+}
+function renderTimeline(mtgs){
+  const tl=document.getElementById("timeline");
+  if(!store.meetings.length){
+    tl.innerHTML=`<div class="card empty">아직 회의가 없습니다.<br>위 <b>＋ 새 회의</b>로 추가하거나, <b>가져오기</b>로 불러오세요.<br><br><button class="sec sm" onclick="loadSample()">예시 시리즈 불러오기</button></div>`;
+    return;
+  }
+  if(!mtgs.length){ tl.innerHTML=`<div class="card empty">이 시리즈에 회의가 없습니다.</div>`; return; }
+  tl.innerHTML=mtgs.map(m=>{
+    const acts=(m.actions||[]);
+    const openN=acts.filter(a=>a.status!=="done").length;
+    const decisions=(m.decisions||[]).length?`<details><summary>결정사항 ${m.decisions.length}건</summary><div class="mtg-body">• ${m.decisions.map(esc).join("<br>• ")}</div></details>`:"";
+    const actsHtml=acts.length?`<div class="mtg-actions"><div class="muted" style="font-size:12px;font-weight:700;margin-bottom:2px">액션아이템 (미완료 ${openN}/${acts.length})</div>${acts.map(a=>actionRow(m,a,false)).join("")}</div>`:"";
+    const summ=m.summary?`<details><summary>요약 보기</summary><div class="mtg-body">${esc(m.summary)}</div></details>`:"";
+    return `<div class="card">
+      <div class="mtg-top">
+        <div><div class="mtg-date">${esc(m.date||"")} ${m.series?`· <span class="pill">${esc(m.series)}</span>`:""}</div>
+        <div class="mtg-title">${esc(m.title||"(제목 없음)")}</div>
+        ${m.attendees&&m.attendees.length?`<div class="mtg-att">👥 ${esc(m.attendees.join(", "))}</div>`:""}</div>
+      </div>
+      ${summ}${decisions}${actsHtml}
+      <div class="card-actions"><button class="sec sm" onclick="editMeeting('${m.id}')">수정</button>
+        <button class="danger sm" onclick="delMeeting('${m.id}')">삭제</button></div>
+    </div>`;
+  }).join("");
+}
+
+// ---- import / export ----
+function exportJSON(){
+  const blob=new Blob([JSON.stringify(store,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob); const a=document.createElement("a");
+  a.href=url; a.download=`meeting-brain-${todayStr()}.json`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),3000); toast("백업 파일 내보냄");
+}
+function importJSON(ev){
+  const f=ev.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const data=JSON.parse(r.result);
+      const incoming=Array.isArray(data)?data:(data.meetings||[]);
+      if(!incoming.length){ toast("가져올 회의가 없습니다"); return; }
+      const mode=store.meetings.length? (confirm(`가져올 회의 ${incoming.length}건.\n확인=기존에 합치기 / 취소=기존 유지`)?"merge":"cancel") : "merge";
+      if(mode==="cancel"){ ev.target.value=""; return; }
+      incoming.forEach(m=>{ m.id=m.id||uid(); (m.actions||[]).forEach(a=>a.id=a.id||uid()); store.meetings.push(m); });
+      save(); render(); toast(`${incoming.length}건 가져옴`);
+    }catch(e){ toast("파일 형식 오류"); }
+    ev.target.value="";
+  };
+  r.readAsText(f);
+}
+function loadSample(){
+  const s="샘플: 신제품 출시 준비";
+  store.meetings.push(
+    {id:uid(),series:s,date:"2026-07-15",title:"킥오프 미팅",attendees:["김PM","이디자인","박개발"],
+     summary:"신제품 A의 출시 일정과 역할을 정함. 8월 말 베타, 9월 정식 목표.",
+     decisions:["출시일 9/20 확정","베타 테스터 50명 모집"],
+     actions:[{id:uid(),text:"랜딩페이지 초안 작성",owner:"이디자인",due:"2026-07-25",status:"done"},
+              {id:uid(),text:"베타 테스터 모집 공지",owner:"김PM",due:"2026-07-30",status:"open"},
+              {id:uid(),text:"결제모듈 연동",owner:"박개발",due:"2026-08-10",status:"open"}]},
+    {id:uid(),series:s,date:"2026-07-29",title:"주간 점검",attendees:["김PM","박개발"],
+     summary:"랜딩페이지 완료. 결제모듈 지연 이슈 논의.",
+     decisions:["결제모듈 우선순위 상향"],
+     actions:[{id:uid(),text:"결제모듈 QA 일정 확정",owner:"박개발",due:"2026-08-05",status:"open"}]}
+  );
+  save(); render(); toast("예시 불러옴 (삭제 가능)");
+}
+
+render();
+if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
+</script>
+</body>
+</html>
