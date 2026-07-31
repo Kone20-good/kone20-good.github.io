@@ -80,8 +80,17 @@
     <button onclick="toggleForm()">＋ 새 회의</button>
     <select id="series-filter" onchange="render()" style="flex:1;min-width:140px"></select>
     <button class="ghost sm" onclick="exportJSON()">내보내기</button>
-    <button class="ghost sm" onclick="document.getElementById('import-file').click()">가져오기</button>
-    <input type="file" id="import-file" accept="application/json,.json" class="hidden" onchange="importJSON(event)">
+    <button class="ghost sm" onclick="document.getElementById('import-file').click()">파일 가져오기</button>
+    <button class="ghost sm" onclick="togglePaste()">붙여넣기</button>
+    <input type="file" id="import-file" class="hidden" onchange="importJSON(event)">
+  </div>
+
+  <!-- 붙여넣기 가져오기 -->
+  <div class="card hidden" id="paste-card">
+    <div class="section-title">📋 붙여넣기 가져오기</div>
+    <textarea id="paste-json" placeholder="여기에 JSON을 붙여넣으세요" style="min-height:120px"></textarea>
+    <div class="card-actions"><button onclick="importText()">가져오기</button>
+      <button class="ghost sm" onclick="togglePaste(false)">취소</button></div>
   </div>
 
   <!-- 새/수정 회의 폼 -->
@@ -303,6 +312,24 @@ function importJSON(ev){
     ev.target.value="";
   };
   r.readAsText(f);
+}
+function togglePaste(show){
+  const c=document.getElementById("paste-card");
+  const willShow=(show===undefined)?c.classList.contains("hidden"):show;
+  if(willShow){ c.classList.remove("hidden"); c.scrollIntoView({behavior:"smooth"}); }
+  else { c.classList.add("hidden"); document.getElementById("paste-json").value=""; }
+}
+function ingest(data){
+  const incoming=Array.isArray(data)?data:(data.meetings||[]);
+  if(!incoming.length){ toast("가져올 회의가 없습니다"); return 0; }
+  incoming.forEach(m=>{ m.id=m.id||uid(); (m.actions||[]).forEach(a=>a.id=a.id||uid()); store.meetings.push(m); });
+  save(); render(); return incoming.length;
+}
+function importText(){
+  const t=document.getElementById("paste-json").value.trim();
+  if(!t){ toast("붙여넣은 내용이 없습니다"); return; }
+  try{ const n=ingest(JSON.parse(t)); if(n){ togglePaste(false); toast(`${n}건 가져옴`); } }
+  catch(e){ toast("JSON 형식 오류"); }
 }
 function loadSample(){
   const s="샘플: 신제품 출시 준비";

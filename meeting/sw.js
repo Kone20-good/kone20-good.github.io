@@ -1,5 +1,5 @@
 // 회의 브레인 service worker — network-first (항상 최신, 오프라인 시 캐시 폴백)
-const CACHE = "meeting-brain-v1";
+const CACHE = "meeting-brain-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
